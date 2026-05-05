@@ -8,20 +8,27 @@
   <style>
     /* ===========================================
        App de Ausencias — EBerry Farms
-       Versión: 1.0.0.4V
-       Cambios respecto a 1.0.0.3V:
-         - Filtros en cascada estilo Excel/Google Sheets:
-           cada dropdown muestra solo los valores válidos
-           dado el resto de filtros activos.
-         - Si la selección actual deja de ser válida tras
-           cambiar otro filtro, se resetea automáticamente
-           a "Todas/Todos".
+       Versión: 1.0.0.5V
+       Cambios respecto a 1.0.0.4V:
+         - Branding con colores corporativos eBerry:
+             verde fresa, rojo fresa, azul navy del logotipo.
+             Aplicado a header, KPIs, botones, links.
+         - PALETTE de gráficas y badges de ausencia INTACTOS
+             (a petición del usuario, esos colores le gustan).
+         - Nuevo filtro "Día específico" con botón "Hoy" que
+             llena la fecha de hoy automáticamente.
+             Si Día está lleno, ignora Desde/Hasta.
        =========================================== */
     :root {
-      --green-700: #1f6f3a;
-      --green-600: #2a8a4a;
-      --green-500: #38b260;
-      --green-100: #e6f5ec;
+      /* Colores corporativos eBerry (extraídos del logo) */
+      --green-700: #0a6d30;   /* verde fresa oscuro */
+      --green-600: #0c8a3d;   /* verde fresa principal */
+      --green-500: #2bad5b;   /* verde fresa brillante */
+      --green-100: #def6e6;   /* verde fondo claro */
+      --brand-red: #d8232a;   /* rojo fresa eBerry */
+      --brand-navy: #231f7c;  /* azul-morado del texto "berry" */
+      --brand-navy-soft: #3530a3;
+
       --gray-900: #1a1f24;
       --gray-700: #4a5560;
       --gray-500: #8a96a3;
@@ -47,19 +54,21 @@
     }
 
     header.top {
-      background: linear-gradient(135deg, var(--green-700), var(--green-500));
+      background: linear-gradient(135deg, var(--green-700) 0%, var(--green-600) 60%, var(--green-500) 100%);
       color: white;
       padding: 18px 24px;
       display: flex;
       align-items: center;
       justify-content: space-between;
       box-shadow: var(--shadow);
+      border-bottom: 3px solid var(--brand-red);
     }
-    header.top h1 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.01em; }
-    header.top .subtitle { font-size: 12px; opacity: 0.85; margin-top: 2px; }
+    header.top h1 { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -0.01em; }
+    header.top .subtitle { font-size: 12px; opacity: 0.9; margin-top: 2px; }
+
     .btn {
-      background: white; color: var(--green-700); border: none; border-radius: 8px;
-      padding: 9px 16px; font-weight: 600; cursor: pointer; font-size: 13px;
+      background: white; color: var(--brand-navy); border: none; border-radius: 8px;
+      padding: 9px 16px; font-weight: 700; cursor: pointer; font-size: 13px;
       transition: transform .12s, box-shadow .12s;
       display: inline-flex; align-items: center; gap: 6px;
     }
@@ -84,18 +93,19 @@
     }
     .kpi {
       background: white; border-radius: var(--radius); padding: 16px 18px;
-      box-shadow: var(--shadow-sm); border-left: 4px solid var(--green-500);
+      box-shadow: var(--shadow-sm); border-left: 4px solid var(--green-600);
     }
-    .kpi.red { border-left-color: var(--red-500); }
+    .kpi.red    { border-left-color: var(--brand-red); }
     .kpi.orange { border-left-color: var(--orange-500); }
-    .kpi.blue { border-left-color: var(--blue-500); }
+    .kpi.blue   { border-left-color: var(--brand-navy); }
     .kpi.purple { border-left-color: var(--purple-500); }
     .kpi-label {
       font-size: 12px; color: var(--gray-500); text-transform: uppercase;
       font-weight: 600; letter-spacing: 0.04em;
     }
     .kpi-value {
-      font-size: 28px; font-weight: 700; color: var(--gray-900);
+      font-size: 28px; font-weight: 700;
+      color: var(--brand-navy);
       margin-top: 4px; letter-spacing: -0.02em;
     }
     .kpi-sub { font-size: 12px; color: var(--gray-700); margin-top: 2px; }
@@ -112,6 +122,12 @@
       font-weight: 600; text-transform: uppercase;
       letter-spacing: 0.04em; margin-bottom: 4px;
     }
+    .quick-link {
+      color: var(--green-600); cursor: pointer; font-weight: 700;
+      text-transform: none; letter-spacing: normal; font-size: 11px;
+      margin-left: 6px; user-select: none;
+    }
+    .quick-link:hover { text-decoration: underline; color: var(--green-700); }
     .filter-group input,
     .filter-group select {
       width: 100%; padding: 8px 10px;
@@ -122,13 +138,13 @@
     .filter-group input:focus,
     .filter-group select:focus {
       outline: none; border-color: var(--green-500);
-      box-shadow: 0 0 0 3px rgba(56, 178, 96, 0.15);
+      box-shadow: 0 0 0 3px rgba(43, 173, 91, 0.18);
     }
     .filter-group input::placeholder { color: var(--gray-500); }
     .clear-btn {
-      background: var(--gray-100); color: var(--gray-700);
+      background: var(--gray-100); color: var(--brand-navy);
       border: none; border-radius: 8px;
-      padding: 9px 12px; font-weight: 600; cursor: pointer;
+      padding: 9px 12px; font-weight: 700; cursor: pointer;
       font-size: 13px; height: 36px;
     }
     .clear-btn:hover { background: var(--gray-300); }
@@ -153,13 +169,13 @@
       background: var(--green-100);
     }
     .autocomplete-item .ac-name {
-      font-size: 13px; font-weight: 600; color: var(--gray-900);
+      font-size: 13px; font-weight: 600; color: var(--brand-navy);
       display: flex; justify-content: space-between; align-items: center;
     }
     .autocomplete-item .ac-name .ac-faltas {
       font-size: 11px; color: var(--green-700);
       background: var(--green-100); padding: 1px 6px; border-radius: 10px;
-      font-weight: 600;
+      font-weight: 700;
     }
     .autocomplete-item .ac-meta {
       font-size: 11px; color: var(--gray-500);
@@ -178,7 +194,7 @@
     .chart-card { background: white; border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow-sm); }
     .chart-card.wide { grid-column: 1 / -1; }
     .chart-title {
-      font-size: 14px; font-weight: 600; color: var(--gray-900);
+      font-size: 14px; font-weight: 700; color: var(--brand-navy);
       margin: 0 0 12px;
       display: flex; justify-content: space-between; align-items: center;
     }
@@ -192,7 +208,7 @@
     thead th {
       background: var(--gray-100); color: var(--gray-700);
       text-align: left; padding: 10px;
-      font-weight: 600; text-transform: uppercase;
+      font-weight: 700; text-transform: uppercase;
       font-size: 11px; letter-spacing: 0.04em;
       position: sticky; top: 0;
       cursor: pointer; user-select: none; white-space: nowrap;
@@ -203,6 +219,7 @@
     tbody td { padding: 9px 10px; border-bottom: 1px solid var(--gray-100); white-space: nowrap; }
     tbody tr:hover { background: var(--green-100); }
 
+    /* BADGES de tipos de ausencia: NO TOCAR (preferencia del usuario) */
     .badge {
       display: inline-block; padding: 2px 8px; border-radius: 12px;
       font-size: 11px; font-weight: 600;
@@ -296,6 +313,10 @@
         <select id="fEstado"><option value="">Todos</option></select>
       </div>
       <div class="filter-group">
+        <label for="fDia">Día específico <span class="quick-link" id="quickHoy">hoy</span></label>
+        <input type="date" id="fDia">
+      </div>
+      <div class="filter-group">
         <label for="fDesde">Desde</label>
         <input type="date" id="fDesde">
       </div>
@@ -358,7 +379,7 @@
 <script>
   /* ===========================================
      App de Ausencias — Frontend standalone
-     Versión: 1.0.0.4V
+     Versión: 1.0.0.5V
      =========================================== */
 
   const API_URL = 'https://script.google.com/macros/s/AKfycbxWZYEjaZYP9GqIWCQ-rLBh_ujdOALEBt5-IdQiXWMkoJrUv10ECZgyqG5jy-UU4EEJ/exec';
@@ -368,7 +389,6 @@
   let SORT = { key: 'fechaISO', dir: -1 };
   const CHARTS = {};
 
-  // Mapeo de filtros dropdown a la columna del dato
   const DROPDOWN_FILTERS = {
     fHomecrew: 'homecrew',
     fAusencia: 'ausencia',
@@ -376,11 +396,11 @@
     fEstado:   'estado'
   };
 
-  // Estado del autocomplete
   let AC_OPEN = false;
   let AC_INDEX = -1;
   let AC_SUGGESTIONS = [];
 
+  // PALETTE de gráficas — INTACTA por preferencia del usuario
   const PALETTE = [
     '#2a8a4a', '#3498db', '#e67e22', '#9b59b6', '#e74c3c',
     '#16a085', '#f39c12', '#34495e', '#1abc9c', '#d35400',
@@ -391,9 +411,19 @@
     document.getElementById('refreshBtn').addEventListener('click', loadData);
     document.getElementById('clearBtn').addEventListener('click', clearFilters);
 
-    // Filtros normales (sin el buscador, que tiene su propio handler)
-    ['fHomecrew','fAusencia','fCasa','fEstado','fDesde','fHasta']
+    // Filtros normales
+    ['fHomecrew','fAusencia','fCasa','fEstado','fDia','fDesde','fHasta']
       .forEach(id => document.getElementById(id).addEventListener('input', applyFilters));
+
+    // Botón "hoy" → llena Día específico con la fecha de hoy
+    document.getElementById('quickHoy').addEventListener('click', () => {
+      const today = new Date();
+      const iso = today.getFullYear() + '-' +
+                  String(today.getMonth() + 1).padStart(2, '0') + '-' +
+                  String(today.getDate()).padStart(2, '0');
+      document.getElementById('fDia').value = iso;
+      applyFilters();
+    });
 
     // Buscador con autocomplete
     const fs = document.getElementById('fSearch');
@@ -401,7 +431,6 @@
     fs.addEventListener('keydown', onSearchKeydown);
     fs.addEventListener('focus', () => { if (fs.value.trim().length >= 2) showAutocomplete(); });
 
-    // Cerrar autocomplete al hacer clic fuera
     document.addEventListener('click', (e) => {
       if (!e.target.closest('.autocomplete-wrap')) closeAutocomplete();
     });
@@ -462,21 +491,14 @@
 
   /* ─── FILTROS EN CASCADA ─── */
 
-  /**
-   * Para cada dropdown, calcula las opciones válidas considerando
-   * todos los OTROS filtros activos. Si la selección actual ya no
-   * existe en las opciones nuevas, la resetea.
-   */
   function refreshCascadingFilters() {
     Object.entries(DROPDOWN_FILTERS).forEach(([filterId, dataKey]) => {
       const subset = DATA.filter(r => matchesOtherFilters(r, filterId));
       let values = uniq(subset.map(r => r[dataKey]).filter(Boolean));
-      // Sort: casa con orden natural (números), el resto alfabético
       if (filterId === 'fCasa') values.sort(naturalSort);
       else values.sort();
       fillSelect(filterId, values);
 
-      // Si la selección actual ya no es válida → reset
       const sel = document.getElementById(filterId);
       if (sel.value && !values.includes(sel.value)) {
         sel.value = '';
@@ -484,27 +506,25 @@
     });
   }
 
-  /**
-   * Devuelve true si la fila pasa todos los filtros activos
-   * EXCEPTO el filtro identificado por excludeFilterId.
-   * Esto permite que cada dropdown muestre opciones válidas
-   * para sí mismo sin auto-restringirse.
-   */
   function matchesOtherFilters(row, excludeFilterId) {
-    // Texto de búsqueda
     const q = document.getElementById('fSearch').value.trim().toLowerCase();
     if (q) {
       const hay = (row.nombre + ' ' + row.numEmpleado).toLowerCase();
       if (!hay.includes(q)) return false;
     }
 
-    // Rango de fechas
-    const desde = document.getElementById('fDesde').value;
-    const hasta = document.getElementById('fHasta').value;
-    if (desde && row.fechaISO && row.fechaISO < desde) return false;
-    if (hasta && row.fechaISO && row.fechaISO > hasta) return false;
+    // Filtro de fecha: si hay día específico, usa solo ese día.
+    // Si no, usa rango desde/hasta.
+    const dia = document.getElementById('fDia').value;
+    if (dia) {
+      if (row.fechaISO !== dia) return false;
+    } else {
+      const desde = document.getElementById('fDesde').value;
+      const hasta = document.getElementById('fHasta').value;
+      if (desde && row.fechaISO && row.fechaISO < desde) return false;
+      if (hasta && row.fechaISO && row.fechaISO > hasta) return false;
+    }
 
-    // Dropdowns (excluyendo el que estamos calculando)
     for (const fid in DROPDOWN_FILTERS) {
       if (fid === excludeFilterId) continue;
       const val = document.getElementById(fid).value;
@@ -531,7 +551,7 @@
   }
 
   function clearFilters() {
-    ['fSearch','fHomecrew','fAusencia','fCasa','fEstado','fDesde','fHasta']
+    ['fSearch','fHomecrew','fAusencia','fCasa','fEstado','fDia','fDesde','fHasta']
       .forEach(id => document.getElementById(id).value = '');
     closeAutocomplete();
     refreshCascadingFilters();
@@ -691,6 +711,7 @@
     const aus     = document.getElementById('fAusencia').value;
     const casa    = document.getElementById('fCasa').value;
     const estado  = document.getElementById('fEstado').value;
+    const dia     = document.getElementById('fDia').value;
     const desde   = document.getElementById('fDesde').value;
     const hasta   = document.getElementById('fHasta').value;
 
@@ -703,13 +724,17 @@
       if (aus     && r.ausencia !== aus) return false;
       if (casa    && r.casa !== casa) return false;
       if (estado  && r.estado !== estado) return false;
-      if (desde   && r.fechaISO && r.fechaISO < desde) return false;
-      if (hasta   && r.fechaISO && r.fechaISO > hasta) return false;
+
+      // Fecha: día específico tiene prioridad sobre rango
+      if (dia) {
+        if (r.fechaISO !== dia) return false;
+      } else {
+        if (desde && r.fechaISO && r.fechaISO < desde) return false;
+        if (hasta && r.fechaISO && r.fechaISO > hasta) return false;
+      }
       return true;
     });
 
-    // Después de filtrar, refresca las opciones de los dropdowns
-    // según los filtros activos (cascada).
     refreshCascadingFilters();
 
     renderKPIs();
