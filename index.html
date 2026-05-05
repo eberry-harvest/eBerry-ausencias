@@ -8,14 +8,14 @@
   <style>
     /* ===========================================
        App de Ausencias — EBerry Farms
-       Versión: 1.0.0.3V
-       Cambios respecto a 1.0.0.2V:
-         - Buscador con autocomplete: dropdown con coincidencias
-           a partir de 2 caracteres (nombre o # empleado).
-         - Sugerencias muestran: nombre, # empleado, último crew
-           y cantidad de faltas en el dataset.
-         - Soporta teclado: ↑ ↓ Enter Esc.
-         - Cierra al hacer clic fuera.
+       Versión: 1.0.0.4V
+       Cambios respecto a 1.0.0.3V:
+         - Filtros en cascada estilo Excel/Google Sheets:
+           cada dropdown muestra solo los valores válidos
+           dado el resto de filtros activos.
+         - Si la selección actual deja de ser válida tras
+           cambiar otro filtro, se resetea automáticamente
+           a "Todas/Todos".
        =========================================== */
     :root {
       --green-700: #1f6f3a;
@@ -358,7 +358,7 @@
 <script>
   /* ===========================================
      App de Ausencias — Frontend standalone
-     Versión: 1.0.0.3V
+     Versión: 1.0.0.4V
      =========================================== */
 
   const API_URL = 'https://script.google.com/macros/s/AKfycbxWZYEjaZYP9GqIWCQ-rLBh_ujdOALEBt5-IdQiXWMkoJrUv10ECZgyqG5jy-UU4EEJ/exec';
@@ -367,6 +367,14 @@
   let FILTERED = [];
   let SORT = { key: 'fechaISO', dir: -1 };
   const CHARTS = {};
+
+  // Mapeo de filtros dropdown a la columna del dato
+  const DROPDOWN_FILTERS = {
+    fHomecrew: 'homecrew',
+    fAusencia: 'ausencia',
+    fCasa:     'casa',
+    fEstado:   'estado'
+  };
 
   // Estado del autocomplete
   let AC_OPEN = false;
@@ -440,7 +448,7 @@
     document.getElementById('lastUpdate').textContent =
       'Última actualización: ' + new Date().toLocaleString('es-MX') + ' · ' + DATA.length + ' registros';
 
-    populateFilters();
+    refreshCascadingFilters();
     applyFilters();
   }
 
@@ -452,12 +460,59 @@
       '<tr><td colspan="7" class="state">No se pudieron cargar los datos. ¿La URL es correcta y el deploy es público?</td></tr>';
   }
 
-  function populateFilters() {
-    fillSelect('fHomecrew', uniq(DATA.map(r => r.homecrew)).sort());
-    fillSelect('fAusencia', uniq(DATA.map(r => r.ausencia)).sort());
-    fillSelect('fCasa',     uniq(DATA.map(r => r.casa)).sort(naturalSort));
-    fillSelect('fEstado',   uniq(DATA.map(r => r.estado)).sort());
+  /* ─── FILTROS EN CASCADA ─── */
+
+  /**
+   * Para cada dropdown, calcula las opciones válidas considerando
+   * todos los OTROS filtros activos. Si la selección actual ya no
+   * existe en las opciones nuevas, la resetea.
+   */
+  function refreshCascadingFilters() {
+    Object.entries(DROPDOWN_FILTERS).forEach(([filterId, dataKey]) => {
+      const subset = DATA.filter(r => matchesOtherFilters(r, filterId));
+      let values = uniq(subset.map(r => r[dataKey]).filter(Boolean));
+      // Sort: casa con orden natural (números), el resto alfabético
+      if (filterId === 'fCasa') values.sort(naturalSort);
+      else values.sort();
+      fillSelect(filterId, values);
+
+      // Si la selección actual ya no es válida → reset
+      const sel = document.getElementById(filterId);
+      if (sel.value && !values.includes(sel.value)) {
+        sel.value = '';
+      }
+    });
   }
+
+  /**
+   * Devuelve true si la fila pasa todos los filtros activos
+   * EXCEPTO el filtro identificado por excludeFilterId.
+   * Esto permite que cada dropdown muestre opciones válidas
+   * para sí mismo sin auto-restringirse.
+   */
+  function matchesOtherFilters(row, excludeFilterId) {
+    // Texto de búsqueda
+    const q = document.getElementById('fSearch').value.trim().toLowerCase();
+    if (q) {
+      const hay = (row.nombre + ' ' + row.numEmpleado).toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+
+    // Rango de fechas
+    const desde = document.getElementById('fDesde').value;
+    const hasta = document.getElementById('fHasta').value;
+    if (desde && row.fechaISO && row.fechaISO < desde) return false;
+    if (hasta && row.fechaISO && row.fechaISO > hasta) return false;
+
+    // Dropdowns (excluyendo el que estamos calculando)
+    for (const fid in DROPDOWN_FILTERS) {
+      if (fid === excludeFilterId) continue;
+      const val = document.getElementById(fid).value;
+      if (val && row[DROPDOWN_FILTERS[fid]] !== val) return false;
+    }
+    return true;
+  }
+
   function fillSelect(id, vals) {
     const sel = document.getElementById(id);
     const current = sel.value;
@@ -479,6 +534,7 @@
     ['fSearch','fHomecrew','fAusencia','fCasa','fEstado','fDesde','fHasta']
       .forEach(id => document.getElementById(id).value = '');
     closeAutocomplete();
+    refreshCascadingFilters();
     applyFilters();
   }
 
@@ -496,7 +552,6 @@
 
   function onSearchKeydown(e) {
     if (!AC_OPEN || !AC_SUGGESTIONS.length) {
-      // Permitir Enter para aplicar el filtro tal cual está
       if (e.key === 'Escape') { closeAutocomplete(); }
       return;
     }
@@ -522,7 +577,6 @@
     const q = document.getElementById('fSearch').value.trim().toLowerCase();
     if (q.length < 2) { closeAutocomplete(); return; }
 
-    // Construye lista única de empleados a partir de DATA
     const empleadosMap = {};
     DATA.forEach(r => {
       const key = r.numEmpleado || r.nombre;
@@ -538,23 +592,19 @@
         };
       }
       empleadosMap[key].faltas++;
-      // Conserva el último crew/casa visto
       if (r.homecrew) empleadosMap[key].homecrew = r.homecrew;
       if (r.casa) empleadosMap[key].casa = r.casa;
     });
 
-    // Filtra coincidencias y ordena por relevancia
     const list = Object.values(empleadosMap).filter(emp => {
       const hay = (emp.nombre + ' ' + emp.numEmpleado).toLowerCase();
       return hay.includes(q);
     });
 
-    // Prioriza coincidencias al inicio del nombre
     list.sort((a, b) => {
       const aStarts = a.nombre.toLowerCase().startsWith(q) ? 0 : 1;
       const bStarts = b.nombre.toLowerCase().startsWith(q) ? 0 : 1;
       if (aStarts !== bStarts) return aStarts - bStarts;
-      // Después por más faltas (más relevante)
       if (b.faltas !== a.faltas) return b.faltas - a.faltas;
       return a.nombre.localeCompare(b.nombre);
     });
@@ -596,7 +646,6 @@
       );
     }).join('');
 
-    // Click handlers
     list.querySelectorAll('.autocomplete-item').forEach(el => {
       el.addEventListener('mouseenter', () => {
         AC_INDEX = parseInt(el.dataset.idx, 10);
@@ -613,7 +662,6 @@
     document.querySelectorAll('.autocomplete-item').forEach((el, i) => {
       el.classList.toggle('active', i === AC_INDEX);
     });
-    // Scroll item activo a la vista
     const active = document.querySelector('.autocomplete-item.active');
     if (active) active.scrollIntoView({ block: 'nearest' });
   }
@@ -635,7 +683,7 @@
       esc(t.slice(idx + query.length));
   }
 
-  /* ─── FILTROS / RENDER ─── */
+  /* ─── APLICAR FILTROS / RENDER ─── */
 
   function applyFilters() {
     const q       = document.getElementById('fSearch').value.trim().toLowerCase();
@@ -659,6 +707,10 @@
       if (hasta   && r.fechaISO && r.fechaISO > hasta) return false;
       return true;
     });
+
+    // Después de filtrar, refresca las opciones de los dropdowns
+    // según los filtros activos (cascada).
+    refreshCascadingFilters();
 
     renderKPIs();
     renderCharts();
