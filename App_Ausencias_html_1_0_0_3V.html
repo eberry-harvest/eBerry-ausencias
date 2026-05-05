@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ausencias — EBerry Farms</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    /* ===========================================
+       App de Ausencias — EBerry Farms
+       Versión: 1.0.0.3V
+       Cambios respecto a 1.0.0.2V:
+         - Buscador con autocomplete: dropdown con coincidencias
+           a partir de 2 caracteres (nombre o # empleado).
+         - Sugerencias muestran: nombre, # empleado, último crew
+           y cantidad de faltas en el dataset.
+         - Soporta teclado: ↑ ↓ Enter Esc.
+         - Cierra al hacer clic fuera.
+       =========================================== */
+    :root {
+      --green-700: #1f6f3a;
+      --green-600: #2a8a4a;
+      --green-500: #38b260;
+      --green-100: #e6f5ec;
+      --gray-900: #1a1f24;
+      --gray-700: #4a5560;
+      --gray-500: #8a96a3;
+      --gray-300: #d6dde3;
+      --gray-100: #f3f6f8;
+      --gray-50:  #fafbfc;
+      --red-500:  #e74c3c;
+      --orange-500: #f39c12;
+      --blue-500: #3498db;
+      --purple-500: #9b59b6;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,.05);
+      --shadow:    0 2px 8px rgba(0,0,0,.06);
+      --shadow-lg: 0 8px 24px rgba(0,0,0,.12);
+      --radius: 12px;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--gray-50);
+      color: var(--gray-900);
+      line-height: 1.5;
+    }
+
+    header.top {
+      background: linear-gradient(135deg, var(--green-700), var(--green-500));
+      color: white;
+      padding: 18px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: var(--shadow);
+    }
+    header.top h1 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.01em; }
+    header.top .subtitle { font-size: 12px; opacity: 0.85; margin-top: 2px; }
+    .btn {
+      background: white; color: var(--green-700); border: none; border-radius: 8px;
+      padding: 9px 16px; font-weight: 600; cursor: pointer; font-size: 13px;
+      transition: transform .12s, box-shadow .12s;
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .btn:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
+    .btn:active { transform: translateY(0); }
+    .btn .spin { display: inline-block; transition: transform .4s; }
+    .btn.loading .spin { transform: rotate(360deg); }
+
+    main { padding: 20px; max-width: 1500px; margin: 0 auto; }
+
+    .setup-banner {
+      background: #fff7e6; border: 1px solid #f39c12; color: #8a5a00;
+      padding: 14px 18px; border-radius: var(--radius);
+      margin-bottom: 20px; font-size: 14px;
+    }
+    .setup-banner code { background: rgba(0,0,0,0.07); padding: 2px 6px; border-radius: 4px; font-size: 12px; }
+    .setup-banner b { color: #5e3a00; }
+
+    .kpis {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 14px; margin-bottom: 20px;
+    }
+    .kpi {
+      background: white; border-radius: var(--radius); padding: 16px 18px;
+      box-shadow: var(--shadow-sm); border-left: 4px solid var(--green-500);
+    }
+    .kpi.red { border-left-color: var(--red-500); }
+    .kpi.orange { border-left-color: var(--orange-500); }
+    .kpi.blue { border-left-color: var(--blue-500); }
+    .kpi.purple { border-left-color: var(--purple-500); }
+    .kpi-label {
+      font-size: 12px; color: var(--gray-500); text-transform: uppercase;
+      font-weight: 600; letter-spacing: 0.04em;
+    }
+    .kpi-value {
+      font-size: 28px; font-weight: 700; color: var(--gray-900);
+      margin-top: 4px; letter-spacing: -0.02em;
+    }
+    .kpi-sub { font-size: 12px; color: var(--gray-700); margin-top: 2px; }
+
+    .filters {
+      background: white; border-radius: var(--radius); padding: 16px;
+      margin-bottom: 20px; box-shadow: var(--shadow-sm);
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 12px; align-items: end;
+    }
+    .filter-group { position: relative; }
+    .filter-group label {
+      display: block; font-size: 11px; color: var(--gray-700);
+      font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.04em; margin-bottom: 4px;
+    }
+    .filter-group input,
+    .filter-group select {
+      width: 100%; padding: 8px 10px;
+      border: 1px solid var(--gray-300); border-radius: 8px;
+      font-size: 14px; background: white; color: var(--gray-900);
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .filter-group input:focus,
+    .filter-group select:focus {
+      outline: none; border-color: var(--green-500);
+      box-shadow: 0 0 0 3px rgba(56, 178, 96, 0.15);
+    }
+    .filter-group input::placeholder { color: var(--gray-500); }
+    .clear-btn {
+      background: var(--gray-100); color: var(--gray-700);
+      border: none; border-radius: 8px;
+      padding: 9px 12px; font-weight: 600; cursor: pointer;
+      font-size: 13px; height: 36px;
+    }
+    .clear-btn:hover { background: var(--gray-300); }
+
+    /* Autocomplete dropdown */
+    .autocomplete-wrap { position: relative; }
+    .autocomplete-list {
+      position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+      background: white; border: 1px solid var(--gray-300);
+      border-radius: 8px; box-shadow: var(--shadow-lg);
+      max-height: 320px; overflow-y: auto;
+      z-index: 50; display: none;
+      padding: 4px;
+    }
+    .autocomplete-list.open { display: block; }
+    .autocomplete-item {
+      padding: 8px 10px; border-radius: 6px; cursor: pointer;
+      display: flex; flex-direction: column; gap: 2px;
+    }
+    .autocomplete-item:hover,
+    .autocomplete-item.active {
+      background: var(--green-100);
+    }
+    .autocomplete-item .ac-name {
+      font-size: 13px; font-weight: 600; color: var(--gray-900);
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .autocomplete-item .ac-name .ac-faltas {
+      font-size: 11px; color: var(--green-700);
+      background: var(--green-100); padding: 1px 6px; border-radius: 10px;
+      font-weight: 600;
+    }
+    .autocomplete-item .ac-meta {
+      font-size: 11px; color: var(--gray-500);
+    }
+    .autocomplete-item mark {
+      background: #fff3a8; color: var(--gray-900); padding: 0 1px; border-radius: 2px;
+    }
+    .autocomplete-empty {
+      padding: 12px; text-align: center; color: var(--gray-500); font-size: 13px;
+    }
+
+    .charts {
+      display: grid; grid-template-columns: repeat(2, 1fr);
+      gap: 16px; margin-bottom: 20px;
+    }
+    .chart-card { background: white; border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow-sm); }
+    .chart-card.wide { grid-column: 1 / -1; }
+    .chart-title {
+      font-size: 14px; font-weight: 600; color: var(--gray-900);
+      margin: 0 0 12px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .chart-title .count { font-size: 12px; color: var(--gray-500); font-weight: 500; }
+    .chart-wrap { position: relative; height: 280px; }
+    .chart-wrap.tall { height: 340px; }
+
+    .table-card { background: white; border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow-sm); overflow: hidden; }
+    .table-wrap { overflow-x: auto; max-height: 480px; overflow-y: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    thead th {
+      background: var(--gray-100); color: var(--gray-700);
+      text-align: left; padding: 10px;
+      font-weight: 600; text-transform: uppercase;
+      font-size: 11px; letter-spacing: 0.04em;
+      position: sticky; top: 0;
+      cursor: pointer; user-select: none; white-space: nowrap;
+    }
+    thead th:hover { background: var(--gray-300); }
+    thead th .arrow { font-size: 10px; opacity: 0.5; margin-left: 4px; }
+    thead th.active .arrow { opacity: 1; color: var(--green-600); }
+    tbody td { padding: 9px 10px; border-bottom: 1px solid var(--gray-100); white-space: nowrap; }
+    tbody tr:hover { background: var(--green-100); }
+
+    .badge {
+      display: inline-block; padding: 2px 8px; border-radius: 12px;
+      font-size: 11px; font-weight: 600;
+      background: var(--gray-100); color: var(--gray-700);
+    }
+    .badge.enfermo  { background: #fee9e7; color: #b03a2e; }
+    .badge.fugado   { background: #fdebd0; color: #a04000; }
+    .badge.sinmotivo{ background: #d6eaf8; color: #1f618d; }
+    .badge.norop    { background: #e8daef; color: #6c3483; }
+    .badge.mexico   { background: #d4efdf; color: #196f3d; }
+    .badge.absconded{ background: #f6ddcc; color: #935116; }
+
+    .state { padding: 40px; text-align: center; color: var(--gray-500); font-size: 14px; }
+
+    @media (max-width: 900px) {
+      .charts { grid-template-columns: 1fr; }
+      header.top h1 { font-size: 16px; }
+      .kpi-value { font-size: 22px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="top">
+    <div>
+      <h1>EBerry Farms — Ausencias</h1>
+      <div class="subtitle" id="lastUpdate">Cargando...</div>
+    </div>
+    <button class="btn" id="refreshBtn">
+      <span class="spin">↻</span>
+      Actualizar
+    </button>
+  </header>
+
+  <main>
+
+    <div class="setup-banner" id="setupBanner" style="display:none;">
+      <b>⚙ Configuración pendiente:</b> abre este archivo en un editor y pega la URL de tu Web App de Apps Script en la constante <code>API_URL</code> (al inicio del &lt;script&gt;).
+      Después guarda y recarga esta página.
+    </div>
+
+    <section class="kpis" id="kpis">
+      <div class="kpi">
+        <div class="kpi-label">Total Ausencias</div>
+        <div class="kpi-value" id="kpiTotal">—</div>
+        <div class="kpi-sub" id="kpiPeriodo">—</div>
+      </div>
+      <div class="kpi blue">
+        <div class="kpi-label">Empleados Únicos</div>
+        <div class="kpi-value" id="kpiEmpleados">—</div>
+        <div class="kpi-sub">con al menos 1 falta</div>
+      </div>
+      <div class="kpi orange">
+        <div class="kpi-label">Día con más faltas</div>
+        <div class="kpi-value" id="kpiDia">—</div>
+        <div class="kpi-sub" id="kpiDiaCount">—</div>
+      </div>
+      <div class="kpi red">
+        <div class="kpi-label">Crew más afectado</div>
+        <div class="kpi-value" id="kpiCrew">—</div>
+        <div class="kpi-sub" id="kpiCrewCount">—</div>
+      </div>
+      <div class="kpi purple">
+        <div class="kpi-label">Tipo más común</div>
+        <div class="kpi-value" id="kpiTipo">—</div>
+        <div class="kpi-sub" id="kpiTipoCount">—</div>
+      </div>
+    </section>
+
+    <section class="filters">
+      <div class="filter-group">
+        <label for="fSearch">Buscar empleado</label>
+        <div class="autocomplete-wrap">
+          <input type="text" id="fSearch" placeholder="Escribe 2+ letras…" autocomplete="off">
+          <div class="autocomplete-list" id="acList" role="listbox"></div>
+        </div>
+      </div>
+      <div class="filter-group">
+        <label for="fHomecrew">Homecrew</label>
+        <select id="fHomecrew"><option value="">Todos</option></select>
+      </div>
+      <div class="filter-group">
+        <label for="fAusencia">Tipo Ausencia</label>
+        <select id="fAusencia"><option value="">Todas</option></select>
+      </div>
+      <div class="filter-group">
+        <label for="fCasa">Casa</label>
+        <select id="fCasa"><option value="">Todas</option></select>
+      </div>
+      <div class="filter-group">
+        <label for="fEstado">Estado</label>
+        <select id="fEstado"><option value="">Todos</option></select>
+      </div>
+      <div class="filter-group">
+        <label for="fDesde">Desde</label>
+        <input type="date" id="fDesde">
+      </div>
+      <div class="filter-group">
+        <label for="fHasta">Hasta</label>
+        <input type="date" id="fHasta">
+      </div>
+      <div class="filter-group">
+        <label>&nbsp;</label>
+        <button class="clear-btn" id="clearBtn">Limpiar filtros</button>
+      </div>
+    </section>
+
+    <section class="charts">
+      <div class="chart-card">
+        <h3 class="chart-title">Top 10 empleados con más faltas <span class="count" id="cnt1"></span></h3>
+        <div class="chart-wrap tall"><canvas id="chartTop"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3 class="chart-title">Ausencias por Homecrew <span class="count" id="cnt2"></span></h3>
+        <div class="chart-wrap tall"><canvas id="chartCrew"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3 class="chart-title">Tipos de Ausencia <span class="count" id="cnt3"></span></h3>
+        <div class="chart-wrap"><canvas id="chartTipo"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3 class="chart-title">Tendencia por día <span class="count" id="cnt4"></span></h3>
+        <div class="chart-wrap"><canvas id="chartTendencia"></canvas></div>
+      </div>
+      <div class="chart-card wide">
+        <h3 class="chart-title">Ausencias por Casa + Estado <span class="count" id="cnt5"></span></h3>
+        <div class="chart-wrap tall"><canvas id="chartCasaEstado"></canvas></div>
+      </div>
+    </section>
+
+    <section class="table-card">
+      <h3 class="chart-title">Detalle <span class="count" id="cntTabla"></span></h3>
+      <div class="table-wrap">
+        <table id="tabla">
+          <thead>
+            <tr>
+              <th data-sort="numEmpleado"># Empleado <span class="arrow">▲▼</span></th>
+              <th data-sort="nombre">Nombre <span class="arrow">▲▼</span></th>
+              <th data-sort="ausencia">Ausencia <span class="arrow">▲▼</span></th>
+              <th data-sort="fechaISO">Fecha <span class="arrow">▲▼</span></th>
+              <th data-sort="homecrew">Homecrew <span class="arrow">▲▼</span></th>
+              <th data-sort="casa">Casa <span class="arrow">▲▼</span></th>
+              <th data-sort="estado">Estado <span class="arrow">▲▼</span></th>
+            </tr>
+          </thead>
+          <tbody id="tbody">
+            <tr><td colspan="7" class="state">Cargando datos…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+<script>
+  /* ===========================================
+     App de Ausencias — Frontend standalone
+     Versión: 1.0.0.3V
+     =========================================== */
+
+  const API_URL = 'https://script.google.com/macros/s/AKfycbxWZYEjaZYP9GqIWCQ-rLBh_ujdOALEBt5-IdQiXWMkoJrUv10ECZgyqG5jy-UU4EEJ/exec';
+
+  let DATA = [];
+  let FILTERED = [];
+  let SORT = { key: 'fechaISO', dir: -1 };
+  const CHARTS = {};
+
+  // Estado del autocomplete
+  let AC_OPEN = false;
+  let AC_INDEX = -1;
+  let AC_SUGGESTIONS = [];
+
+  const PALETTE = [
+    '#2a8a4a', '#3498db', '#e67e22', '#9b59b6', '#e74c3c',
+    '#16a085', '#f39c12', '#34495e', '#1abc9c', '#d35400',
+    '#27ae60', '#2980b9', '#8e44ad', '#c0392b', '#2c3e50'
+  ];
+
+  document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('refreshBtn').addEventListener('click', loadData);
+    document.getElementById('clearBtn').addEventListener('click', clearFilters);
+
+    // Filtros normales (sin el buscador, que tiene su propio handler)
+    ['fHomecrew','fAusencia','fCasa','fEstado','fDesde','fHasta']
+      .forEach(id => document.getElementById(id).addEventListener('input', applyFilters));
+
+    // Buscador con autocomplete
+    const fs = document.getElementById('fSearch');
+    fs.addEventListener('input', onSearchInput);
+    fs.addEventListener('keydown', onSearchKeydown);
+    fs.addEventListener('focus', () => { if (fs.value.trim().length >= 2) showAutocomplete(); });
+
+    // Cerrar autocomplete al hacer clic fuera
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.autocomplete-wrap')) closeAutocomplete();
+    });
+
+    document.querySelectorAll('th[data-sort]').forEach(th => {
+      th.addEventListener('click', () => {
+        const key = th.dataset.sort;
+        SORT.dir = (SORT.key === key) ? -SORT.dir : -1;
+        SORT.key = key;
+        renderTable();
+      });
+    });
+
+    if (!API_URL || API_URL.trim() === '') {
+      document.getElementById('setupBanner').style.display = 'block';
+      document.getElementById('lastUpdate').textContent = 'API_URL no configurada';
+      document.getElementById('tbody').innerHTML =
+        '<tr><td colspan="7" class="state">Configura la URL de Apps Script al inicio del script.</td></tr>';
+      return;
+    }
+
+    loadData();
+  });
+
+  function loadData() {
+    const btn = document.getElementById('refreshBtn');
+    btn.classList.add('loading');
+    document.getElementById('lastUpdate').textContent = 'Cargando…';
+
+    fetch(API_URL, { method: 'GET', redirect: 'follow' })
+      .then(r => {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      })
+      .then(onData)
+      .catch(onError);
+  }
+
+  function onData(res) {
+    document.getElementById('refreshBtn').classList.remove('loading');
+    if (res.error) { onError(new Error(res.error)); return; }
+
+    DATA = res.rows || [];
+    document.getElementById('lastUpdate').textContent =
+      'Última actualización: ' + new Date().toLocaleString('es-MX') + ' · ' + DATA.length + ' registros';
+
+    populateFilters();
+    applyFilters();
+  }
+
+  function onError(err) {
+    document.getElementById('refreshBtn').classList.remove('loading');
+    const msg = (err && err.message) ? err.message : String(err);
+    document.getElementById('lastUpdate').textContent = '⚠ Error: ' + msg;
+    document.getElementById('tbody').innerHTML =
+      '<tr><td colspan="7" class="state">No se pudieron cargar los datos. ¿La URL es correcta y el deploy es público?</td></tr>';
+  }
+
+  function populateFilters() {
+    fillSelect('fHomecrew', uniq(DATA.map(r => r.homecrew)).sort());
+    fillSelect('fAusencia', uniq(DATA.map(r => r.ausencia)).sort());
+    fillSelect('fCasa',     uniq(DATA.map(r => r.casa)).sort(naturalSort));
+    fillSelect('fEstado',   uniq(DATA.map(r => r.estado)).sort());
+  }
+  function fillSelect(id, vals) {
+    const sel = document.getElementById(id);
+    const current = sel.value;
+    const placeholder = sel.options[0].textContent;
+    sel.innerHTML = '<option value="">' + placeholder + '</option>';
+    vals.filter(v => v).forEach(v => {
+      const o = document.createElement('option');
+      o.value = v; o.textContent = v;
+      sel.appendChild(o);
+    });
+    if (vals.includes(current)) sel.value = current;
+  }
+  function uniq(arr) { return [...new Set(arr)]; }
+  function naturalSort(a, b) {
+    return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' });
+  }
+
+  function clearFilters() {
+    ['fSearch','fHomecrew','fAusencia','fCasa','fEstado','fDesde','fHasta']
+      .forEach(id => document.getElementById(id).value = '');
+    closeAutocomplete();
+    applyFilters();
+  }
+
+  /* ─── AUTOCOMPLETE ─── */
+
+  function onSearchInput() {
+    const q = document.getElementById('fSearch').value.trim();
+    if (q.length >= 2) {
+      showAutocomplete();
+    } else {
+      closeAutocomplete();
+    }
+    applyFilters();
+  }
+
+  function onSearchKeydown(e) {
+    if (!AC_OPEN || !AC_SUGGESTIONS.length) {
+      // Permitir Enter para aplicar el filtro tal cual está
+      if (e.key === 'Escape') { closeAutocomplete(); }
+      return;
+    }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      AC_INDEX = Math.min(AC_INDEX + 1, AC_SUGGESTIONS.length - 1);
+      renderAutocompleteHighlight();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      AC_INDEX = Math.max(AC_INDEX - 1, 0);
+      renderAutocompleteHighlight();
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (AC_INDEX >= 0 && AC_INDEX < AC_SUGGESTIONS.length) {
+        selectSuggestion(AC_SUGGESTIONS[AC_INDEX]);
+      }
+    } else if (e.key === 'Escape') {
+      closeAutocomplete();
+    }
+  }
+
+  function showAutocomplete() {
+    const q = document.getElementById('fSearch').value.trim().toLowerCase();
+    if (q.length < 2) { closeAutocomplete(); return; }
+
+    // Construye lista única de empleados a partir de DATA
+    const empleadosMap = {};
+    DATA.forEach(r => {
+      const key = r.numEmpleado || r.nombre;
+      if (!key) return;
+      if (!empleadosMap[key]) {
+        empleadosMap[key] = {
+          numEmpleado: r.numEmpleado,
+          nombre: r.nombre,
+          homecrew: r.homecrew,
+          casa: r.casa,
+          estado: r.estado,
+          faltas: 0
+        };
+      }
+      empleadosMap[key].faltas++;
+      // Conserva el último crew/casa visto
+      if (r.homecrew) empleadosMap[key].homecrew = r.homecrew;
+      if (r.casa) empleadosMap[key].casa = r.casa;
+    });
+
+    // Filtra coincidencias y ordena por relevancia
+    const list = Object.values(empleadosMap).filter(emp => {
+      const hay = (emp.nombre + ' ' + emp.numEmpleado).toLowerCase();
+      return hay.includes(q);
+    });
+
+    // Prioriza coincidencias al inicio del nombre
+    list.sort((a, b) => {
+      const aStarts = a.nombre.toLowerCase().startsWith(q) ? 0 : 1;
+      const bStarts = b.nombre.toLowerCase().startsWith(q) ? 0 : 1;
+      if (aStarts !== bStarts) return aStarts - bStarts;
+      // Después por más faltas (más relevante)
+      if (b.faltas !== a.faltas) return b.faltas - a.faltas;
+      return a.nombre.localeCompare(b.nombre);
+    });
+
+    AC_SUGGESTIONS = list.slice(0, 10);
+    AC_INDEX = AC_SUGGESTIONS.length ? 0 : -1;
+    renderAutocomplete(q);
+    AC_OPEN = true;
+    document.getElementById('acList').classList.add('open');
+  }
+
+  function closeAutocomplete() {
+    AC_OPEN = false;
+    AC_SUGGESTIONS = [];
+    AC_INDEX = -1;
+    const list = document.getElementById('acList');
+    list.classList.remove('open');
+    list.innerHTML = '';
+  }
+
+  function renderAutocomplete(query) {
+    const list = document.getElementById('acList');
+    if (!AC_SUGGESTIONS.length) {
+      list.innerHTML = '<div class="autocomplete-empty">Sin coincidencias</div>';
+      return;
+    }
+    list.innerHTML = AC_SUGGESTIONS.map((emp, i) => {
+      const nombre = highlight(emp.nombre, query);
+      const num    = highlight(emp.numEmpleado, query);
+      const meta   = [emp.homecrew, emp.casa, emp.estado].filter(Boolean).join(' · ');
+      return (
+        '<div class="autocomplete-item' + (i === AC_INDEX ? ' active' : '') + '" data-idx="' + i + '">' +
+          '<div class="ac-name">' +
+            '<span>' + nombre + ' <span style="color:var(--gray-500);font-weight:500;">(' + num + ')</span></span>' +
+            '<span class="ac-faltas">' + emp.faltas + ' falta' + (emp.faltas !== 1 ? 's' : '') + '</span>' +
+          '</div>' +
+          '<div class="ac-meta">' + esc(meta || '—') + '</div>' +
+        '</div>'
+      );
+    }).join('');
+
+    // Click handlers
+    list.querySelectorAll('.autocomplete-item').forEach(el => {
+      el.addEventListener('mouseenter', () => {
+        AC_INDEX = parseInt(el.dataset.idx, 10);
+        renderAutocompleteHighlight();
+      });
+      el.addEventListener('click', () => {
+        const idx = parseInt(el.dataset.idx, 10);
+        selectSuggestion(AC_SUGGESTIONS[idx]);
+      });
+    });
+  }
+
+  function renderAutocompleteHighlight() {
+    document.querySelectorAll('.autocomplete-item').forEach((el, i) => {
+      el.classList.toggle('active', i === AC_INDEX);
+    });
+    // Scroll item activo a la vista
+    const active = document.querySelector('.autocomplete-item.active');
+    if (active) active.scrollIntoView({ block: 'nearest' });
+  }
+
+  function selectSuggestion(emp) {
+    if (!emp) return;
+    document.getElementById('fSearch').value = emp.nombre;
+    closeAutocomplete();
+    applyFilters();
+  }
+
+  function highlight(text, query) {
+    const t = String(text || '');
+    if (!query) return esc(t);
+    const idx = t.toLowerCase().indexOf(query.toLowerCase());
+    if (idx === -1) return esc(t);
+    return esc(t.slice(0, idx)) +
+      '<mark>' + esc(t.slice(idx, idx + query.length)) + '</mark>' +
+      esc(t.slice(idx + query.length));
+  }
+
+  /* ─── FILTROS / RENDER ─── */
+
+  function applyFilters() {
+    const q       = document.getElementById('fSearch').value.trim().toLowerCase();
+    const hc      = document.getElementById('fHomecrew').value;
+    const aus     = document.getElementById('fAusencia').value;
+    const casa    = document.getElementById('fCasa').value;
+    const estado  = document.getElementById('fEstado').value;
+    const desde   = document.getElementById('fDesde').value;
+    const hasta   = document.getElementById('fHasta').value;
+
+    FILTERED = DATA.filter(r => {
+      if (q) {
+        const hay = (r.nombre + ' ' + r.numEmpleado).toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      if (hc      && r.homecrew !== hc) return false;
+      if (aus     && r.ausencia !== aus) return false;
+      if (casa    && r.casa !== casa) return false;
+      if (estado  && r.estado !== estado) return false;
+      if (desde   && r.fechaISO && r.fechaISO < desde) return false;
+      if (hasta   && r.fechaISO && r.fechaISO > hasta) return false;
+      return true;
+    });
+
+    renderKPIs();
+    renderCharts();
+    renderTable();
+  }
+
+  function renderKPIs() {
+    const total = FILTERED.length;
+    document.getElementById('kpiTotal').textContent = total;
+
+    const empleados = uniq(FILTERED.map(r => r.numEmpleado).filter(Boolean)).length;
+    document.getElementById('kpiEmpleados').textContent = empleados;
+
+    const fechas = FILTERED.map(r => r.fechaISO).filter(Boolean).sort();
+    document.getElementById('kpiPeriodo').textContent =
+      fechas.length ? (fmtFecha(fechas[0]) + ' → ' + fmtFecha(fechas[fechas.length-1])) : '—';
+
+    const porDia = countBy(FILTERED, 'fechaISO');
+    const topDia = topEntry(porDia);
+    document.getElementById('kpiDia').textContent      = topDia ? fmtFecha(topDia[0]) : '—';
+    document.getElementById('kpiDiaCount').textContent = topDia ? (topDia[1] + ' ausencias') : '—';
+
+    const porCrew = countBy(FILTERED, 'homecrew');
+    const topCrew = topEntry(porCrew);
+    document.getElementById('kpiCrew').textContent      = topCrew ? topCrew[0] : '—';
+    document.getElementById('kpiCrewCount').textContent = topCrew ? (topCrew[1] + ' ausencias') : '—';
+
+    const porTipo = countBy(FILTERED, 'ausencia');
+    const topTipo = topEntry(porTipo);
+    document.getElementById('kpiTipo').textContent      = topTipo ? topTipo[0] : '—';
+    document.getElementById('kpiTipoCount').textContent = topTipo ? (topTipo[1] + ' ausencias') : '—';
+  }
+
+  function countBy(arr, key) {
+    return arr.reduce((acc, r) => {
+      const k = r[key] || '(vacío)';
+      acc[k] = (acc[k] || 0) + 1;
+      return acc;
+    }, {});
+  }
+  function topEntry(obj) {
+    const e = Object.entries(obj).filter(([k]) => k !== '(vacío)');
+    if (!e.length) return null;
+    return e.sort((a,b) => b[1]-a[1])[0];
+  }
+  function fmtFecha(iso) {
+    if (!iso) return '';
+    const [y,m,d] = iso.split('-');
+    return d + '/' + m + '/' + y;
+  }
+
+  function renderCharts() {
+    drawTopEmpleados();
+    drawPorCrew();
+    drawPorTipo();
+    drawTendencia();
+    drawCasaEstado();
+    document.getElementById('cnt1').textContent = '(' + FILTERED.length + ')';
+    document.getElementById('cnt2').textContent = '(' + FILTERED.length + ')';
+    document.getElementById('cnt3').textContent = '(' + FILTERED.length + ')';
+    document.getElementById('cnt4').textContent = '(' + FILTERED.length + ')';
+    document.getElementById('cnt5').textContent = '(' + FILTERED.length + ')';
+  }
+
+  function drawTopEmpleados() {
+    const counts = {};
+    FILTERED.forEach(r => {
+      const k = r.nombre + (r.numEmpleado ? ' (' + r.numEmpleado + ')' : '');
+      counts[k] = (counts[k] || 0) + 1;
+    });
+    const top = Object.entries(counts).sort((a,b) => b[1]-a[1]).slice(0, 10);
+    drawBar('chartTop', top.map(e=>e[0]), top.map(e=>e[1]), 'Faltas', { horizontal: true });
+  }
+  function drawPorCrew() {
+    const counts = countBy(FILTERED, 'homecrew');
+    const entries = Object.entries(counts).sort((a,b) => b[1]-a[1]);
+    drawBar('chartCrew', entries.map(e=>e[0]), entries.map(e=>e[1]), 'Ausencias');
+  }
+  function drawPorTipo() {
+    const counts = countBy(FILTERED, 'ausencia');
+    const entries = Object.entries(counts).sort((a,b) => b[1]-a[1]);
+    drawDonut('chartTipo', entries.map(e=>e[0]), entries.map(e=>e[1]));
+  }
+  function drawTendencia() {
+    const counts = countBy(FILTERED, 'fechaISO');
+    const entries = Object.entries(counts)
+      .filter(([k]) => k && k !== '(vacío)')
+      .sort((a,b) => a[0].localeCompare(b[0]));
+    drawLine('chartTendencia', entries.map(e => fmtFecha(e[0])), entries.map(e => e[1]));
+  }
+  function drawCasaEstado() {
+    const counts = {};
+    FILTERED.forEach(r => {
+      const k = (r.casa || '?') + ' — ' + (r.estado || '?');
+      counts[k] = (counts[k] || 0) + 1;
+    });
+    const entries = Object.entries(counts).sort((a,b) => b[1]-a[1]).slice(0, 25);
+    drawBar('chartCasaEstado', entries.map(e=>e[0]), entries.map(e=>e[1]), 'Ausencias');
+  }
+
+  function destroy(id) { if (CHARTS[id]) CHARTS[id].destroy(); }
+
+  function drawBar(id, labels, data, label, opts) {
+    destroy(id);
+    const horizontal = opts && opts.horizontal;
+    CHARTS[id] = new Chart(document.getElementById(id), {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: label,
+          data: data,
+          backgroundColor: labels.map((_, i) => PALETTE[i % PALETTE.length]),
+          borderRadius: 6,
+          borderSkipped: false
+        }]
+      },
+      options: {
+        indexAxis: horizontal ? 'y' : 'x',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { precision: 0 }, grid: { color: '#f0f3f5' } },
+          y: { ticks: { precision: 0 }, grid: { color: '#f0f3f5' } }
+        }
+      }
+    });
+  }
+
+  function drawDonut(id, labels, data) {
+    destroy(id);
+    CHARTS[id] = new Chart(document.getElementById(id), {
+      type: 'doughnut',
+      data: {
+        labels: labels,
+        datasets: [{
+          data: data,
+          backgroundColor: labels.map((_, i) => PALETTE[i % PALETTE.length]),
+          borderWidth: 2,
+          borderColor: '#fff'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11 } } }
+        }
+      }
+    });
+  }
+
+  function drawLine(id, labels, data) {
+    destroy(id);
+    CHARTS[id] = new Chart(document.getElementById(id), {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Ausencias',
+          data: data,
+          fill: true,
+          backgroundColor: 'rgba(42, 138, 74, 0.12)',
+          borderColor: '#2a8a4a',
+          borderWidth: 2,
+          tension: 0.3,
+          pointRadius: 3,
+          pointBackgroundColor: '#2a8a4a'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { color: '#f0f3f5' } },
+          y: { ticks: { precision: 0 }, grid: { color: '#f0f3f5' } }
+        }
+      }
+    });
+  }
+
+  function renderTable() {
+    document.getElementById('cntTabla').textContent = '(' + FILTERED.length + ')';
+    const sorted = [...FILTERED].sort((a, b) => {
+      const va = (a[SORT.key] || '').toString().toLowerCase();
+      const vb = (b[SORT.key] || '').toString().toLowerCase();
+      if (va < vb) return -1 * SORT.dir;
+      if (va > vb) return  1 * SORT.dir;
+      return 0;
+    });
+
+    document.querySelectorAll('th[data-sort]').forEach(th => {
+      th.classList.toggle('active', th.dataset.sort === SORT.key);
+    });
+
+    const tbody = document.getElementById('tbody');
+    if (!sorted.length) {
+      tbody.innerHTML = '<tr><td colspan="7" class="state">Sin resultados con los filtros actuales.</td></tr>';
+      return;
+    }
+
+    const rows = sorted.map(r => {
+      const cls = badgeClass(r.ausencia);
+      return '<tr>' +
+        '<td>' + esc(r.numEmpleado) + '</td>' +
+        '<td>' + esc(r.nombre) + '</td>' +
+        '<td><span class="badge ' + cls + '">' + esc(r.ausencia) + '</span></td>' +
+        '<td>' + esc(r.fecha) + '</td>' +
+        '<td>' + esc(r.homecrew) + '</td>' +
+        '<td>' + esc(r.casa) + '</td>' +
+        '<td>' + esc(r.estado) + '</td>' +
+      '</tr>';
+    }).join('');
+    tbody.innerHTML = rows;
+  }
+
+  function badgeClass(t) {
+    const k = (t || '').toLowerCase();
+    if (k.includes('enfermo')) return 'enfermo';
+    if (k.includes('fugado')) return 'fugado';
+    if (k.includes('sin motivo')) return 'sinmotivo';
+    if (k.includes('ropa')) return 'norop';
+    if (k.includes('mexico') || k.includes('méxico')) return 'mexico';
+    if (k.includes('absconded')) return 'absconded';
+    return '';
+  }
+
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+</script>
+</body>
+</html>
