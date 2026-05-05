@@ -2,32 +2,73 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Viewport optimizado para móvil estilo app (igual a eBerry Field) -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Ausencias — EBerry Farms</title>
+
+  <!-- ─── COMPATIBILIDAD MÓVIL (PWA-ready) — extraído de eBerry Field V20_99 ─── -->
+  <!-- Android Chrome -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#1c2845">
+  <!-- iOS Safari (modo "Agregar a inicio") -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Ausencias">
+  <!-- Iconos (referenciados desde el repo eBerry-Field) -->
+  <link rel="icon" type="image/png" sizes="32x32" href="https://eberry-harvest.github.io/eBerry-Field/favicon-32.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="https://eberry-harvest.github.io/eBerry-Field/apple-touch-icon.png">
+  <link rel="manifest" id="manifestLink">
+  <script>
+    // Manifest PWA generado dinámicamente como blob (técnica de eBerry Field V20_98).
+    // Permite "Agregar a pantalla de inicio" en Android e iOS sin hospedar archivo manifest.json.
+    (function(){
+      var base = (location.pathname.replace(/[^\/]*$/,'') || '/');
+      var absBase = location.origin + base;
+      var manifest = {
+        name: 'eBerry Ausencias',
+        short_name: 'Ausencias',
+        start_url: absBase,
+        display: 'standalone',
+        background_color: '#ffffff',
+        theme_color: '#1c2845',
+        icons: [
+          { src: 'https://eberry-harvest.github.io/eBerry-Field/icon-192.png', sizes: '192x192', type: 'image/png' },
+          { src: 'https://eberry-harvest.github.io/eBerry-Field/icon-512.png', sizes: '512x512', type: 'image/png' },
+          { src: 'https://eberry-harvest.github.io/eBerry-Field/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }
+        ]
+      };
+      var blob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
+      document.getElementById('manifestLink').href = URL.createObjectURL(blob);
+    })();
+  </script>
+
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
     /* ===========================================
        App de Ausencias — EBerry Farms
-       Versión: 1.0.0.5V
-       Cambios respecto a 1.0.0.4V:
-         - Branding con colores corporativos eBerry:
-             verde fresa, rojo fresa, azul navy del logotipo.
-             Aplicado a header, KPIs, botones, links.
-         - PALETTE de gráficas y badges de ausencia INTACTOS
-             (a petición del usuario, esos colores le gustan).
-         - Nuevo filtro "Día específico" con botón "Hoy" que
-             llena la fecha de hoy automáticamente.
-             Si Día está lleno, ignora Desde/Hasta.
+       Versión: 1.0.0.7V
+       Cambios respecto a 1.0.0.6V:
+         - Compatibilidad iPhone/Android extraída de eBerry Field V20_99:
+             * apple-mobile-web-app-capable + status-bar-style
+             * mobile-web-app-capable (Android)
+             * theme-color para barra del navegador
+             * apple-touch-icon para "Agregar a inicio" en iOS
+             * manifest PWA dinámico (blob) para Android/iOS
+         - Viewport con maximum-scale=1.0 user-scalable=no (modo app).
+         - Botones interactivos con tamaño táctil mínimo 44x44px (HIG Apple).
+         - Breakpoints adicionales para pantallas chicas (≤480px y ≤380px).
+         - Safe areas iOS (notch/home indicator).
        =========================================== */
     :root {
-      /* Colores corporativos eBerry (extraídos del logo) */
-      --green-700: #0a6d30;   /* verde fresa oscuro */
-      --green-600: #0c8a3d;   /* verde fresa principal */
-      --green-500: #2bad5b;   /* verde fresa brillante */
-      --green-100: #def6e6;   /* verde fondo claro */
-      --brand-red: #d8232a;   /* rojo fresa eBerry */
-      --brand-navy: #231f7c;  /* azul-morado del texto "berry" */
-      --brand-navy-soft: #3530a3;
+      --navy-darkest: #15203a;
+      --navy-dark:    #1c2845;
+      --navy:         #2a3a5e;
+      --navy-soft:    #3d4f78;
+      --red-fresa:    #d8232a;
+      --red-fresa-soft: #e63946;
+      --green-fresa:  #1da34a;
+      --green-fresa-soft: #38b260;
+      --green-100:    #e1f5e8;
 
       --gray-900: #1a1f24;
       --gray-700: #4a5560;
@@ -35,7 +76,6 @@
       --gray-300: #d6dde3;
       --gray-100: #f3f6f8;
       --gray-50:  #fafbfc;
-      --red-500:  #e74c3c;
       --orange-500: #f39c12;
       --blue-500: #3498db;
       --purple-500: #9b59b6;
@@ -44,40 +84,90 @@
       --shadow-lg: 0 8px 24px rgba(0,0,0,.12);
       --radius: 12px;
     }
-    * { box-sizing: border-box; }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     html, body { margin: 0; padding: 0; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background: var(--gray-50);
       color: var(--gray-900);
       line-height: 1.5;
+      /* Safe areas iOS (notch + home indicator) */
+      padding-left: env(safe-area-inset-left);
+      padding-right: env(safe-area-inset-right);
+      -webkit-text-size-adjust: 100%;
+      -webkit-font-smoothing: antialiased;
     }
 
+    /* ── Header con branding eBerry ── */
     header.top {
-      background: linear-gradient(135deg, var(--green-700) 0%, var(--green-600) 60%, var(--green-500) 100%);
+      background: var(--navy-dark);
       color: white;
-      padding: 18px 24px;
+      padding: 14px 24px;
+      padding-top: calc(14px + env(safe-area-inset-top));
       display: flex;
       align-items: center;
       justify-content: space-between;
       box-shadow: var(--shadow);
-      border-bottom: 3px solid var(--brand-red);
+      border-bottom: 4px solid var(--red-fresa);
+      gap: 16px;
     }
-    header.top h1 { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -0.01em; }
-    header.top .subtitle { font-size: 12px; opacity: 0.9; margin-top: 2px; }
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      min-width: 0;
+      flex: 1;
+    }
+    .logo-card {
+      background: white;
+      border-radius: 10px;
+      padding: 6px 12px;
+      display: flex;
+      align-items: center;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+      flex-shrink: 0;
+    }
+    .logo-card img {
+      height: 38px;
+      display: block;
+    }
+    .header-titles { min-width: 0; }
+    .header-titles h1 {
+      margin: 0; font-size: 18px; font-weight: 700;
+      letter-spacing: -0.01em; color: white;
+    }
+    .header-titles .subtitle {
+      font-size: 12px; opacity: 0.85; margin-top: 2px;
+      color: rgba(255,255,255,0.85);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
 
+    /* Botones — mínimo táctil 44x44 (HIG Apple) */
     .btn {
-      background: white; color: var(--brand-navy); border: none; border-radius: 8px;
-      padding: 9px 16px; font-weight: 700; cursor: pointer; font-size: 13px;
-      transition: transform .12s, box-shadow .12s;
+      background: var(--red-fresa); color: white; border: none;
+      border-radius: 8px;
+      padding: 10px 18px; font-weight: 700; cursor: pointer;
+      font-size: 13px;
+      min-height: 44px;
+      min-width: 44px;
+      transition: transform .12s, box-shadow .12s, background .15s;
       display: inline-flex; align-items: center; gap: 6px;
+      box-shadow: 0 2px 6px rgba(216, 35, 42, 0.3);
+      flex-shrink: 0;
     }
-    .btn:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
+    .btn:hover { transform: translateY(-1px); background: var(--red-fresa-soft); box-shadow: 0 4px 10px rgba(216, 35, 42, 0.35); }
     .btn:active { transform: translateY(0); }
     .btn .spin { display: inline-block; transition: transform .4s; }
     .btn.loading .spin { transform: rotate(360deg); }
 
-    main { padding: 20px; max-width: 1500px; margin: 0 auto; }
+    main {
+      padding: 20px;
+      padding-bottom: calc(20px + env(safe-area-inset-bottom));
+      max-width: 1500px;
+      margin: 0 auto;
+    }
 
     .setup-banner {
       background: #fff7e6; border: 1px solid #f39c12; color: #8a5a00;
@@ -87,67 +177,82 @@
     .setup-banner code { background: rgba(0,0,0,0.07); padding: 2px 6px; border-radius: 4px; font-size: 12px; }
     .setup-banner b { color: #5e3a00; }
 
+    /* ── KPIs ── */
     .kpis {
       display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
       gap: 14px; margin-bottom: 20px;
     }
     .kpi {
       background: white; border-radius: var(--radius); padding: 16px 18px;
-      box-shadow: var(--shadow-sm); border-left: 4px solid var(--green-600);
+      box-shadow: var(--shadow-sm); border-top: 3px solid var(--navy-dark);
     }
-    .kpi.red    { border-left-color: var(--brand-red); }
-    .kpi.orange { border-left-color: var(--orange-500); }
-    .kpi.blue   { border-left-color: var(--brand-navy); }
-    .kpi.purple { border-left-color: var(--purple-500); }
+    .kpi.red    { border-top-color: var(--red-fresa); }
+    .kpi.orange { border-top-color: var(--orange-500); }
+    .kpi.blue   { border-top-color: var(--navy); }
+    .kpi.purple { border-top-color: var(--purple-500); }
+    .kpi.green  { border-top-color: var(--green-fresa); }
     .kpi-label {
       font-size: 12px; color: var(--gray-500); text-transform: uppercase;
-      font-weight: 600; letter-spacing: 0.04em;
+      font-weight: 700; letter-spacing: 0.04em;
     }
     .kpi-value {
-      font-size: 28px; font-weight: 700;
-      color: var(--brand-navy);
+      font-size: 28px; font-weight: 800;
+      color: var(--navy-dark);
       margin-top: 4px; letter-spacing: -0.02em;
     }
     .kpi-sub { font-size: 12px; color: var(--gray-700); margin-top: 2px; }
 
+    /* ── Filtros ── */
     .filters {
       background: white; border-radius: var(--radius); padding: 16px;
       margin-bottom: 20px; box-shadow: var(--shadow-sm);
       display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
       gap: 12px; align-items: end;
+      border-top: 3px solid var(--navy-dark);
     }
     .filter-group { position: relative; }
     .filter-group label {
-      display: block; font-size: 11px; color: var(--gray-700);
-      font-weight: 600; text-transform: uppercase;
+      display: block; font-size: 11px; color: var(--navy-dark);
+      font-weight: 700; text-transform: uppercase;
       letter-spacing: 0.04em; margin-bottom: 4px;
     }
     .quick-link {
-      color: var(--green-600); cursor: pointer; font-weight: 700;
+      color: var(--red-fresa); cursor: pointer; font-weight: 700;
       text-transform: none; letter-spacing: normal; font-size: 11px;
       margin-left: 6px; user-select: none;
     }
-    .quick-link:hover { text-decoration: underline; color: var(--green-700); }
+    .quick-link:hover { text-decoration: underline; color: var(--red-fresa-soft); }
     .filter-group input,
     .filter-group select {
-      width: 100%; padding: 8px 10px;
+      width: 100%; padding: 10px 10px;
+      min-height: 44px;
       border: 1px solid var(--gray-300); border-radius: 8px;
-      font-size: 14px; background: white; color: var(--gray-900);
+      font-size: 16px; /* 16px evita zoom automático en iOS al hacer focus */
+      background: white; color: var(--gray-900);
       transition: border-color .15s, box-shadow .15s;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+    .filter-group select {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%232a3a5e' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 30px;
     }
     .filter-group input:focus,
     .filter-group select:focus {
-      outline: none; border-color: var(--green-500);
-      box-shadow: 0 0 0 3px rgba(43, 173, 91, 0.18);
+      outline: none; border-color: var(--navy);
+      box-shadow: 0 0 0 3px rgba(42, 58, 94, 0.18);
     }
     .filter-group input::placeholder { color: var(--gray-500); }
     .clear-btn {
-      background: var(--gray-100); color: var(--brand-navy);
+      background: var(--navy-dark); color: white;
       border: none; border-radius: 8px;
       padding: 9px 12px; font-weight: 700; cursor: pointer;
-      font-size: 13px; height: 36px;
+      font-size: 13px; height: 44px; min-width: 44px;
+      transition: background .15s;
     }
-    .clear-btn:hover { background: var(--gray-300); }
+    .clear-btn:hover { background: var(--navy); }
 
     /* Autocomplete dropdown */
     .autocomplete-wrap { position: relative; }
@@ -158,24 +263,28 @@
       max-height: 320px; overflow-y: auto;
       z-index: 50; display: none;
       padding: 4px;
+      -webkit-overflow-scrolling: touch;
     }
     .autocomplete-list.open { display: block; }
     .autocomplete-item {
-      padding: 8px 10px; border-radius: 6px; cursor: pointer;
+      padding: 10px 12px; border-radius: 6px; cursor: pointer;
       display: flex; flex-direction: column; gap: 2px;
+      min-height: 44px;
     }
     .autocomplete-item:hover,
     .autocomplete-item.active {
-      background: var(--green-100);
+      background: rgba(42, 58, 94, 0.08);
     }
     .autocomplete-item .ac-name {
-      font-size: 13px; font-weight: 600; color: var(--brand-navy);
+      font-size: 14px; font-weight: 600; color: var(--navy-dark);
       display: flex; justify-content: space-between; align-items: center;
+      gap: 8px;
     }
     .autocomplete-item .ac-name .ac-faltas {
-      font-size: 11px; color: var(--green-700);
-      background: var(--green-100); padding: 1px 6px; border-radius: 10px;
+      font-size: 11px; color: white;
+      background: var(--red-fresa); padding: 2px 8px; border-radius: 10px;
       font-weight: 700;
+      flex-shrink: 0;
     }
     .autocomplete-item .ac-meta {
       font-size: 11px; color: var(--gray-500);
@@ -191,35 +300,47 @@
       display: grid; grid-template-columns: repeat(2, 1fr);
       gap: 16px; margin-bottom: 20px;
     }
-    .chart-card { background: white; border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow-sm); }
+    .chart-card {
+      background: white; border-radius: var(--radius); padding: 16px;
+      box-shadow: var(--shadow-sm);
+      border-top: 3px solid var(--navy-dark);
+    }
     .chart-card.wide { grid-column: 1 / -1; }
     .chart-title {
-      font-size: 14px; font-weight: 700; color: var(--brand-navy);
+      font-size: 14px; font-weight: 700; color: var(--navy-dark);
       margin: 0 0 12px;
       display: flex; justify-content: space-between; align-items: center;
+      gap: 8px;
     }
     .chart-title .count { font-size: 12px; color: var(--gray-500); font-weight: 500; }
     .chart-wrap { position: relative; height: 280px; }
     .chart-wrap.tall { height: 340px; }
 
-    .table-card { background: white; border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow-sm); overflow: hidden; }
-    .table-wrap { overflow-x: auto; max-height: 480px; overflow-y: auto; }
+    .table-card {
+      background: white; border-radius: var(--radius); padding: 16px;
+      box-shadow: var(--shadow-sm); overflow: hidden;
+      border-top: 3px solid var(--navy-dark);
+    }
+    .table-wrap {
+      overflow-x: auto; max-height: 480px; overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
     table { width: 100%; border-collapse: collapse; font-size: 13px; }
     thead th {
-      background: var(--gray-100); color: var(--gray-700);
+      background: var(--navy-dark); color: white;
       text-align: left; padding: 10px;
       font-weight: 700; text-transform: uppercase;
       font-size: 11px; letter-spacing: 0.04em;
       position: sticky; top: 0;
       cursor: pointer; user-select: none; white-space: nowrap;
     }
-    thead th:hover { background: var(--gray-300); }
-    thead th .arrow { font-size: 10px; opacity: 0.5; margin-left: 4px; }
-    thead th.active .arrow { opacity: 1; color: var(--green-600); }
+    thead th:hover { background: var(--navy); }
+    thead th .arrow { font-size: 10px; opacity: 0.5; margin-left: 4px; color: white; }
+    thead th.active .arrow { opacity: 1; color: var(--red-fresa-soft); }
     tbody td { padding: 9px 10px; border-bottom: 1px solid var(--gray-100); white-space: nowrap; }
-    tbody tr:hover { background: var(--green-100); }
+    tbody tr:hover { background: rgba(42, 58, 94, 0.06); }
 
-    /* BADGES de tipos de ausencia: NO TOCAR (preferencia del usuario) */
+    /* BADGES de tipos de ausencia: NO TOCAR */
     .badge {
       display: inline-block; padding: 2px 8px; border-radius: 12px;
       font-size: 11px; font-weight: 600;
@@ -234,18 +355,57 @@
 
     .state { padding: 40px; text-align: center; color: var(--gray-500); font-size: 14px; }
 
+    /* ─── BREAKPOINTS RESPONSIVE ─── */
+
+    /* Tablet */
     @media (max-width: 900px) {
       .charts { grid-template-columns: 1fr; }
-      header.top h1 { font-size: 16px; }
+      .header-titles h1 { font-size: 16px; }
+      .logo-card img { height: 32px; }
       .kpi-value { font-size: 22px; }
+      main { padding: 14px; }
+    }
+
+    /* Móvil */
+    @media (max-width: 600px) {
+      header.top { padding: 12px 14px; padding-top: calc(12px + env(safe-area-inset-top)); gap: 10px; }
+      .logo-card { padding: 4px 10px; }
+      .logo-card img { height: 28px; }
+      .header-titles h1 { font-size: 14px; }
+      .header-titles .subtitle { font-size: 10px; }
+      .btn { padding: 9px 12px; font-size: 12px; }
+      .filters { padding: 12px; gap: 10px; grid-template-columns: 1fr 1fr; }
+      .filter-group:has(.clear-btn) { grid-column: 1 / -1; }
+      .clear-btn { width: 100%; }
+      .kpis { grid-template-columns: 1fr 1fr; gap: 10px; }
+      .kpi { padding: 12px 14px; }
+      .kpi-value { font-size: 20px; }
+      .chart-wrap { height: 240px; }
+      .chart-wrap.tall { height: 280px; }
+      table { font-size: 12px; }
+      thead th { padding: 8px; font-size: 10px; }
+      tbody td { padding: 7px 8px; }
+    }
+
+    /* Móvil chico (iPhone SE / Galaxy S antiguos) */
+    @media (max-width: 380px) {
+      .filters { grid-template-columns: 1fr; }
+      .kpis { grid-template-columns: 1fr; }
+      .header-titles h1 { font-size: 13px; }
+      main { padding: 10px; }
     }
   </style>
 </head>
 <body>
   <header class="top">
-    <div>
-      <h1>EBerry Farms — Ausencias</h1>
-      <div class="subtitle" id="lastUpdate">Cargando...</div>
+    <div class="header-left">
+      <div class="logo-card">
+        <img src="https://eberry-harvest.github.io/eBerry-Field/eberry-logo-login.png" alt="eBerry">
+      </div>
+      <div class="header-titles">
+        <h1>Ausencias — Harvest Company</h1>
+        <div class="subtitle" id="lastUpdate">Cargando...</div>
+      </div>
     </div>
     <button class="btn" id="refreshBtn">
       <span class="spin">↻</span>
@@ -379,7 +539,7 @@
 <script>
   /* ===========================================
      App de Ausencias — Frontend standalone
-     Versión: 1.0.0.5V
+     Versión: 1.0.0.7V
      =========================================== */
 
   const API_URL = 'https://script.google.com/macros/s/AKfycbxWZYEjaZYP9GqIWCQ-rLBh_ujdOALEBt5-IdQiXWMkoJrUv10ECZgyqG5jy-UU4EEJ/exec';
@@ -400,7 +560,6 @@
   let AC_INDEX = -1;
   let AC_SUGGESTIONS = [];
 
-  // PALETTE de gráficas — INTACTA por preferencia del usuario
   const PALETTE = [
     '#2a8a4a', '#3498db', '#e67e22', '#9b59b6', '#e74c3c',
     '#16a085', '#f39c12', '#34495e', '#1abc9c', '#d35400',
@@ -411,11 +570,9 @@
     document.getElementById('refreshBtn').addEventListener('click', loadData);
     document.getElementById('clearBtn').addEventListener('click', clearFilters);
 
-    // Filtros normales
     ['fHomecrew','fAusencia','fCasa','fEstado','fDia','fDesde','fHasta']
       .forEach(id => document.getElementById(id).addEventListener('input', applyFilters));
 
-    // Botón "hoy" → llena Día específico con la fecha de hoy
     document.getElementById('quickHoy').addEventListener('click', () => {
       const today = new Date();
       const iso = today.getFullYear() + '-' +
@@ -425,7 +582,6 @@
       applyFilters();
     });
 
-    // Buscador con autocomplete
     const fs = document.getElementById('fSearch');
     fs.addEventListener('input', onSearchInput);
     fs.addEventListener('keydown', onSearchKeydown);
@@ -513,8 +669,6 @@
       if (!hay.includes(q)) return false;
     }
 
-    // Filtro de fecha: si hay día específico, usa solo ese día.
-    // Si no, usa rango desde/hasta.
     const dia = document.getElementById('fDia').value;
     if (dia) {
       if (row.fechaISO !== dia) return false;
@@ -725,7 +879,6 @@
       if (casa    && r.casa !== casa) return false;
       if (estado  && r.estado !== estado) return false;
 
-      // Fecha: día específico tiene prioridad sobre rango
       if (dia) {
         if (r.fechaISO !== dia) return false;
       } else {
